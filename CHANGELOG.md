@@ -1,5 +1,12 @@
 # Changelog
 
+## Fase 1 — Panel `/crear` (link-only)
+
+- `lib/geo.ts`: parser de coordenadas (texto/link de Maps) + haversine, con tests.
+- Panel `/crear` con readout en vivo, generación de link `/visor?lat=&lng=`, QR y compartir.
+- Placeholder de `/visor` que lee las coordenadas.
+- Tests unitarios (vitest, 9) + E2E del panel (Playwright); vitest añadido al CI.
+
 ## Fase 0 — Andamiaje + preview en Vercel
 
 - Andamiaje Next.js 16 + React 19 + TypeScript + Tailwind v4 (App Router).
