@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Motor de Publicidad AR Geoanclada
 
-## Getting Started
+Aplicación web que permite **anclar una campaña publicitaria a un punto del mundo real** y verla en realidad aumentada desde el navegador del teléfono, sin instalar ninguna app.
 
-First, run the development server:
+> Documentación de producto y plan de construcción: ver [`docs/PRD.md`](docs/PRD.md) y [`docs/PLAN-DE-FASES.md`](docs/PLAN-DE-FASES.md).
+
+## Stack
+
+- **Next.js 16** (App Router) + **React 19** + **TypeScript**
+- **Tailwind v4** (tokens de diseño CSS-first)
+- **AR.js / A-Frame** (visor WebAR, client-only) — se incorpora en la Fase 2
+- **Supabase** (persistencia) — se incorpora en la Fase 4
+- Desplegado en **Vercel**
+
+## Desarrollo
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Otros scripts:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build        # build de producción
+npm run typecheck    # tsc --noEmit
+npm run lint         # eslint
+npm run test:e2e     # smoke E2E con Playwright (requiere: npx playwright install)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Estado actual (Fase 0)
 
-## Learn More
+- Landing (`/`) con la estética definida en el mockup.
+- Placeholder de panel (`/crear`) — el panel real llega en la Fase 1.
+- CI (GitHub Actions): lint + typecheck + build + smoke E2E en cada push.
 
-To learn more about Next.js, take a look at the following resources:
+## Límites de precisión (documentados, no ocultos)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+El WebAR puro tiene límites reales que afectan al producto y que **no se ocultan**:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **GPS horizontal:** ~5–15 m de error. El aviso puede "flotar" o desplazarse respecto al punto exacto.
+- **Brújula / heading:** la orientación absoluta es inestable, sobre todo en Android Chrome. Es el factor que más afecta a que el aviso aparezca "donde debe". Puede requerir calibrar moviendo el teléfono en forma de 8.
+- **Altura:** no se ancla con fidelidad en WebAR puro. El campo se guarda como referencia, pero el render coloca el contenido a la altura aproximada de la cámara. La precisión vertical real queda para una fase futura con ARCore Geospatial.
 
-## Deploy on Vercel
+## Requisitos del visor AR
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **HTTPS obligatorio** (cámara/GPS/orientación). Vercel lo da automático.
+- **iOS:** el permiso de orientación se pide tras un gesto del usuario (botón "Activar cámara").
+- **No funciona** dentro de los webviews de WhatsApp/Instagram en iOS → abrir en Safari/Chrome.

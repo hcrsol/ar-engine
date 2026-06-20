@@ -1,26 +1,30 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+  Tokens de diseño portados del mockup panel_motor_geolocalizacion.html.
+  Estética cálida / editorial. Tailwind v4 (CSS-first via @theme).
+*/
+@theme {
+  --color-paper: #f6f2ea; /* fondo cálido */
+  --color-ink: #1f1b16; /* texto principal */
+  --color-soft: #8a8275; /* texto tenue */
+  --color-line: #e2dbce; /* bordes */
+  --color-card: #fffdf9; /* superficie */
+  --color-clay: #c2603c; /* acento terracota */
+  --color-clay-soft: #f0ddd2; /* acento suave */
+  --color-ok: #5b7a52; /* confirmación */
+
+  --font-display: var(--font-fraunces), serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
