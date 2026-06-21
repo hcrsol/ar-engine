@@ -10,6 +10,8 @@ const DEMO_DISTANCE_M = 30;
 const DEMO_RADIUS_M = 120;
 
 export function generateDemoPois(center: LatLng): ARPoi[] {
+  // Escalas elegidas para que los 4 tipos se vean de tamaño parecido (~3-3.6 m)
+  // y a la misma altura (centrados a nivel de la vista, ver lib/ar/scene).
   return [
     {
       id: "n",
@@ -18,7 +20,7 @@ export function generateDemoPois(center: LatLng): ARPoi[] {
       text: "NORTE",
       title: "Aviso NORTE",
       body: "Tipo: texto/cartel 3D.",
-      scale: 3,
+      scale: 2.2,
       radius: DEMO_RADIUS_M,
     },
     {
@@ -28,17 +30,17 @@ export function generateDemoPois(center: LatLng): ARPoi[] {
       url: "/demo/img.jpg",
       title: "Aviso ESTE",
       body: "Tipo: imagen.",
-      scale: 3,
+      scale: 1.6,
       radius: DEMO_RADIUS_M,
     },
     {
       id: "s",
       ...destination(center, 180, DEMO_DISTANCE_M),
       type: "model",
-      url: "/demo/box.glb",
+      url: "/demo/duck.glb",
       title: "Aviso SUR",
       body: "Tipo: modelo 3D (.glb).",
-      scale: 3,
+      scale: 2,
       radius: DEMO_RADIUS_M,
     },
     {
@@ -48,7 +50,7 @@ export function generateDemoPois(center: LatLng): ARPoi[] {
       url: "/demo/clip.mp4",
       title: "Aviso OESTE",
       body: "Tipo: video.",
-      scale: 3,
+      scale: 1.5,
       radius: DEMO_RADIUS_M,
     },
   ];

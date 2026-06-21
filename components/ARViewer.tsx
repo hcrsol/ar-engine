@@ -69,12 +69,15 @@ export default function ARViewer({
   lng,
   radius,
   demo,
+  debug,
 }: {
   lat?: string;
   lng?: string;
   radius?: string;
   demo?: string;
+  debug?: string;
 }) {
+  const showDebug = debug === "1" || debug === "true";
   const radiusN = radius != null ? Number(radius) : NaN;
   const reveal = Number.isFinite(radiusN)
     ? clamp(radiusN, MIN_RADIUS, MAX_RADIUS)
@@ -271,7 +274,8 @@ export default function ARViewer({
     window.addEventListener("deviceorientation", handler as EventListener);
 
     // Debug: posición (x,z) que AR.js asigna al aviso más cercano.
-    debugTimer.current = window.setInterval(() => {
+    if (showDebug)
+      debugTimer.current = window.setInterval(() => {
       const id = nearestIdRef.current;
       if (!id) return;
       const obj = (
@@ -323,14 +327,16 @@ export default function ARViewer({
                             : `gira ${Math.round(turn)}° ▶`}
                     </div>
                   )}
-                  <div className="mt-1 text-[9px] text-white/55">
-                    brúj {heading == null ? "—" : `${Math.round(heading)}°`} ·
-                    rumbo {brg == null ? "—" : `${Math.round(brg)}°`} · poi{" "}
-                    {poiPos
-                      ? `${Math.round(poiPos.x)},${Math.round(poiPos.z)}`
-                      : "—"}{" "}
-                    · {count} avisos
-                  </div>
+                  {showDebug && (
+                    <div className="mt-1 text-[9px] text-white/55">
+                      brúj {heading == null ? "—" : `${Math.round(heading)}°`} ·
+                      rumbo {brg == null ? "—" : `${Math.round(brg)}°`} · poi{" "}
+                      {poiPos
+                        ? `${Math.round(poiPos.x)},${Math.round(poiPos.z)}`
+                        : "—"}{" "}
+                      · {count} avisos
+                    </div>
+                  )}
                 </>
               ) : (
                 "Buscando señal GPS…"

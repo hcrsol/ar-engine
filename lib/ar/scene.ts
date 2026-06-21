@@ -9,7 +9,8 @@ function esc(s: string): string {
   return s.replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
-/** Contenido 3D de un aviso según su tipo. */
+/** Contenido 3D de un aviso según su tipo. Todo centrado en y=0 (nivel de la
+ * vista) para que los tipos queden a la misma altura, no flotando alto. */
 function content(poi: ARPoi): string {
   switch (poi.type) {
     case "image":
@@ -17,14 +18,15 @@ function content(poi: ARPoi): string {
     case "video":
       return `<a-entity geometry="primitive: plane; width: 2.4; height: 1.35" material="src: #vid-${esc(poi.id)}; side: double; shader: flat"></a-entity>`;
     case "model":
-      return `<a-entity gltf-model="${esc(poi.url ?? "")}"></a-entity>`;
+      // El modelo trae su base en y=0; lo bajamos para centrarlo a la vista.
+      return `<a-entity gltf-model="${esc(poi.url ?? "")}" position="0 -0.9 0"></a-entity>`;
     case "text":
     default:
       return `
-        <a-box position="0 0.6 0" depth="0.08" width="0.08" height="1.2" color="#8A8275"></a-box>
-        <a-box position="0 1.75 0" depth="0.07" width="1.7" height="1.05" color="#C2603C"></a-box>
-        <a-box position="0 1.75 0.045" depth="0.02" width="1.5" height="0.85" color="#F0DDD2"></a-box>
-        <a-text value="${esc(poi.text ?? "AR")}" align="center" color="#1F1B16" width="5" position="0 1.75 0.08"></a-text>`;
+        <a-box position="0 -0.85 0" depth="0.06" width="0.06" height="0.9" color="#8A8275"></a-box>
+        <a-box position="0 0 0" depth="0.07" width="1.7" height="1.05" color="#C2603C"></a-box>
+        <a-box position="0 0 0.045" depth="0.02" width="1.5" height="0.85" color="#F0DDD2"></a-box>
+        <a-text value="${esc(poi.text ?? "AR")}" align="center" color="#1F1B16" width="5" position="0 0 0.08"></a-text>`;
   }
 }
 
