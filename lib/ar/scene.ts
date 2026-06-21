@@ -5,6 +5,10 @@ import type { ARPoi } from "./types";
 // avisos. Cada aviso se ancla en su lat/lng real (gps-projected-entity-place)
 // y arranca oculto; el motor decide la visibilidad por cercanía.
 
+// Elevación del aviso sobre el plano de la cámara, en METROS REALES (no se ve
+// afectada por la escala del contenido).
+const LIFT_M = 2;
+
 function esc(s: string): string {
   return s.replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
@@ -32,15 +36,20 @@ function content(poi: ARPoi): string {
 
 function entity(poi: ARPoi): string {
   const s = poi.scale ?? 3;
+  // Entidad externa: anclada al GPS (sin escala). Interna: elevada LIFT_M metros
+  // reales, escalada y animada. Así la altura no depende del tamaño.
   return `
     <a-entity
       id="poi-${esc(poi.id)}"
       class="ar-poi"
       visible="false"
-      gps-projected-entity-place="latitude: ${poi.lat}; longitude: ${poi.lng}"
-      scale="${s} ${s} ${s}"
-      animation="property: rotation; to: 0 360 0; loop: true; dur: 12000; easing: linear">
-      ${content(poi)}
+      gps-projected-entity-place="latitude: ${poi.lat}; longitude: ${poi.lng}">
+      <a-entity
+        position="0 ${LIFT_M} 0"
+        scale="${s} ${s} ${s}"
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 12000; easing: linear">
+        ${content(poi)}
+      </a-entity>
     </a-entity>`;
 }
 
