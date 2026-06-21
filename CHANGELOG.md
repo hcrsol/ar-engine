@@ -1,5 +1,14 @@
 # Changelog
 
+## Fase 3a (revisado) — Anclaje georreferenciado + radio configurable
+
+- Revertido el billboard pegado a la cámara: el cartel vuelve a anclarse en la
+  lat/lng REAL (aparece en su dirección real, norte/sur/etc.).
+- La cercanía pasa a ser solo gatillo de aparición; radio configurable por el
+  parámetro `r` del link (default 100 m).
+- HUD: distancia, precisión real (±m) y estado ("Acércate · aparece a N m" /
+  "En rango — gira buscando el aviso").
+
 ## Fase 3a — Visor robusto: snap por cercanía
 
 - El cartel pasa a billboard hijo de la cámara que aparece al entrar en el radio
