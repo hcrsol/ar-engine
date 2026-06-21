@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Librerías AR vendorizadas (A-Frame / AR.js), minificadas.
+    "public/ar/**",
   ]),
 ]);
 

@@ -28,11 +28,14 @@ npm run lint         # eslint
 npm run test:e2e     # smoke E2E con Playwright (requiere: npx playwright install)
 ```
 
-## Estado actual (Fase 0)
+## Estado actual (Fase 2 — primera pasada completa)
 
-- Landing (`/`) con la estética definida en el mockup.
-- Placeholder de panel (`/crear`) — el panel real llega en la Fase 1.
-- CI (GitHub Actions): lint + typecheck + build + smoke E2E en cada push.
+- Landing (`/`) con la estética del mockup.
+- Panel (`/crear`): pega coordenadas o link de Maps → genera link `/visor?lat=&lng=` + QR + compartir.
+- Visor AR (`/visor`): "Activar cámara" (permisos iOS), cartel 3D animado anclado a la coordenada (A-Frame + AR.js locales), HUD de GPS/distancia y errores accionables.
+- CI (GitHub Actions): lint + typecheck + unit (vitest) + build + E2E (Playwright) en cada push.
+
+> Pendiente: **prueba de campo** del AR en el teléfono (Fase 3) antes de invertir en persistencia (Supabase, Fase 4).
 
 ## Límites de precisión (documentados, no ocultos)
 

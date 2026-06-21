@@ -1,5 +1,12 @@
 # Changelog
 
+## Fase 2 — Visor AR con cartel 3D
+
+- A-Frame 1.3.0 + AR.js 3.4.7 vendorizados en `public/ar` (no CDN).
+- `ARViewer`: pantalla "Activar cámara" (permisos iOS), escena `gps-new-camera` + cartel 3D animado anclado a lat/lng, HUD de GPS/distancia.
+- Errores accionables: sin coords, permiso denegado, webview IG/WhatsApp, sin GPS.
+- `/visor` monta el visor; E2E de intro y error de coordenadas.
+
 ## Fase 1 — Panel `/crear` (link-only)
 
 - `lib/geo.ts`: parser de coordenadas (texto/link de Maps) + haversine, con tests.
