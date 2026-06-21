@@ -38,6 +38,21 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
+/** Primer fix de GPS: fuerza el prompt de ubicación y "calienta" el sensor. */
+function getFirstFix(): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (!("geolocation" in navigator)) {
+      reject({ code: 2 } as GeolocationPositionError);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 30000,
+      maximumAge: 0,
+    });
+  });
+}
+
 /** Escena A-Frame + AR.js con un cartel 3D animado anclado a la coordenada. */
 function sceneHTML({ lat, lng }: LatLng): string {
   return `
@@ -69,6 +84,7 @@ export default function ARViewer({ lat, lng }: { lat?: string; lng?: string }) {
   const [hud, setHud] = useState<{ lat: number; lng: number; dist: number } | null>(
     null,
   );
+  const [loadingMsg, setLoadingMsg] = useState("Iniciando el motor AR…");
 
   const latN = lat != null ? Number(lat) : NaN;
   const lngN = lng != null ? Number(lng) : NaN;
@@ -115,7 +131,18 @@ export default function ARViewer({ lat, lng }: { lat?: string; lng?: string }) {
       return fail("denied");
     }
 
+    // GPS: pedimos el permiso y un primer fix ANTES de montar la escena.
+    // Así el prompt de ubicación aparece explícito y el sensor llega caliente.
+    setLoadingMsg("Buscando señal GPS…");
     setPhase("loading");
+    try {
+      await getFirstFix();
+    } catch (e) {
+      const code = (e as GeolocationPositionError)?.code;
+      return fail(code === 1 ? "denied" : "gps");
+    }
+
+    setLoadingMsg("Iniciando el motor AR…");
     try {
       await loadScript("/ar/aframe.min.js");
       await loadScript("/ar/aframe-ar.js");
@@ -142,10 +169,10 @@ export default function ARViewer({ lat, lng }: { lat?: string; lng?: string }) {
       setHud({ ...here, dist: haversine(here, target) });
     });
 
-    // Si en 15 s no llega ninguna posición GPS, avisar.
+    // Red de seguridad: si en 30 s no llega ninguna posición GPS, avisar.
     window.setTimeout(() => {
       if (!gotPosition) fail("gps");
-    }, 15000);
+    }, 30000);
   }
 
   return (
@@ -216,7 +243,12 @@ export default function ARViewer({ lat, lng }: { lat?: string; lng?: string }) {
             )}
 
             {phase === "loading" && (
-              <p className="text-soft mt-8 text-sm">Iniciando el motor AR…</p>
+              <>
+                <p className="text-soft mt-8 text-sm">{loadingMsg}</p>
+                <p className="text-soft mt-3 font-mono text-[11px]">
+                  La primera señal GPS puede tardar hasta 30 s al aire libre
+                </p>
+              </>
             )}
 
             {phase === "error" && (
@@ -269,7 +301,7 @@ const ERRORS: Record<ErrKind, { title: string; body: string }> = {
   },
   gps: {
     title: "Sin señal GPS",
-    body: "No recibimos tu ubicación. Sal a un espacio abierto, activa el GPS de alta precisión e inténtalo de nuevo.",
+    body: "No recibimos tu ubicación. Permite la ubicación a este sitio en el navegador, sal a un espacio abierto y espera unos segundos antes de reintentar.",
   },
   generic: {
     title: "Algo falló",
