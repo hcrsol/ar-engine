@@ -11,10 +11,18 @@ export default async function VisorPage({
     r?: string;
     demo?: string;
     debug?: string;
+    pois?: string;
   }>;
 }) {
-  const { lat, lng, r, demo, debug } = await searchParams;
+  const { lat, lng, r, demo, debug, pois } = await searchParams;
   return (
-    <ARViewer lat={lat} lng={lng} radius={r} demo={demo} debug={debug} />
+    <ARViewer
+      lat={lat}
+      lng={lng}
+      radius={r}
+      demo={demo}
+      debug={debug}
+      pois={pois}
+    />
   );
 }

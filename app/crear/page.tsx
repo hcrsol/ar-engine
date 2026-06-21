@@ -17,20 +17,21 @@ export default function CrearPage() {
             Panel de creación
           </div>
           <h1 className="font-display mt-3.5 text-[34px] leading-[1.05] font-medium tracking-[-0.01em]">
-            Crear un aviso
+            Crear avisos
           </h1>
           <p className="text-soft mt-3 max-w-[90%] text-sm leading-relaxed">
-            Elige el punto del mundo donde vivirá la campaña y genera el link
-            del visor.
+            Armá uno o varios avisos —ubicación, contenido (imagen, video o 3D
+            por URL), tamaño y distancia— y generá un único link para verlos en
+            AR.
           </p>
         </header>
 
         <PoiForm />
 
         <footer className="text-soft border-line mt-10 border-t pt-5 text-[11px] leading-relaxed">
-          Esta pasada genera un link con la coordenada. El visor AR ancla una
-          animación de demostración en ese punto. La subida de tu propia
-          campaña se conecta en una fase posterior.
+          El link lleva tus avisos codificados (sin servidor todavía). El
+          contenido lo alojás vos (una URL pública). La biblioteca guardada y
+          compartible llega con la persistencia (fase siguiente).
         </footer>
       </div>
     </main>

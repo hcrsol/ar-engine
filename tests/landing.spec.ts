@@ -12,6 +12,6 @@ test("el CTA lleva al panel de creación", async ({ page }) => {
   await page.getByRole("link", { name: /Crear un aviso/i }).click();
   await expect(page).toHaveURL(/\/crear$/);
   await expect(
-    page.getByRole("heading", { name: /Crear un aviso/i }),
+    page.getByRole("heading", { name: /Crear avisos/i }),
   ).toBeVisible();
 });

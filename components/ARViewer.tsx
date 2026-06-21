@@ -5,6 +5,7 @@ import Link from "next/link";
 import { haversine, bearing, relativeAngle } from "@/lib/geo";
 import { buildSceneHTML } from "@/lib/ar/scene";
 import { generateDemoPois } from "@/lib/ar/demo";
+import { decodePois } from "@/lib/ar/encode";
 import type { ARPoi } from "@/lib/ar/types";
 
 type Phase = "intro" | "loading" | "running" | "error";
@@ -70,14 +71,19 @@ export default function ARViewer({
   radius,
   demo,
   debug,
+  pois,
 }: {
   lat?: string;
   lng?: string;
   radius?: string;
   demo?: string;
   debug?: string;
+  pois?: string;
 }) {
   const showDebug = debug === "1" || debug === "true";
+  // Lista de avisos codificada en el link (panel v2). Si viene, manda.
+  const decodedPois = pois ? decodePois(pois) : null;
+  const hasPois = !!decodedPois && decodedPois.length > 0;
   const radiusN = radius != null ? Number(radius) : NaN;
   const reveal = Number.isFinite(radiusN)
     ? clamp(radiusN, MIN_RADIUS, MAX_RADIUS)
@@ -144,7 +150,7 @@ export default function ARViewer({
     const ua = navigator.userAgent || "";
     if (/Instagram|FBAN|FBAV|FB_IAB|WhatsApp/i.test(ua)) return fail("webview");
 
-    if (!isDemo && !validSingle) return fail("coords");
+    if (!isDemo && !hasPois && !validSingle) return fail("coords");
 
     // iOS: permiso de orientación, obligatoriamente tras gesto.
     try {
@@ -205,17 +211,19 @@ export default function ARViewer({
           lat: plantFix.coords.latitude,
           lng: plantFix.coords.longitude,
         })
-      : [
-          {
-            id: "a",
-            lat: latN,
-            lng: lngN,
-            type: "text",
-            text: "AR",
-            scale: 3,
-            radius: reveal,
-          },
-        ];
+      : hasPois
+        ? decodedPois!
+        : [
+            {
+              id: "a",
+              lat: latN,
+              lng: lngN,
+              type: "text",
+              text: "AR",
+              scale: 3,
+              radius: reveal,
+            },
+          ];
     setCount(poisRef.current.length);
 
     setLoadingMsg("Iniciando el motor AR…");
