@@ -6,7 +6,7 @@ import type { ARPoi } from "./types";
 // de contenido. Sirve para probar en campo que cada uno aparece en su dirección
 // correcta y que los 4 tipos renderizan. No necesita backend.
 
-const DEMO_DISTANCE_M = 30;
+const DEMO_DISTANCE_M = 10;
 const DEMO_RADIUS_M = 120;
 
 export function generateDemoPois(center: LatLng): ARPoi[] {
@@ -20,7 +20,7 @@ export function generateDemoPois(center: LatLng): ARPoi[] {
       text: "NORTE",
       title: "Aviso NORTE",
       body: "Tipo: texto/cartel 3D.",
-      scale: 4.4,
+      scale: 1.5,
       radius: DEMO_RADIUS_M,
     },
     {
@@ -30,7 +30,7 @@ export function generateDemoPois(center: LatLng): ARPoi[] {
       url: "/demo/img.jpg",
       title: "Aviso ESTE",
       body: "Tipo: imagen.",
-      scale: 3.2,
+      scale: 1.1,
       radius: DEMO_RADIUS_M,
     },
     {
@@ -40,7 +40,7 @@ export function generateDemoPois(center: LatLng): ARPoi[] {
       url: "/demo/duck.glb",
       title: "Aviso SUR",
       body: "Tipo: modelo 3D (.glb).",
-      scale: 4,
+      scale: 1.3,
       radius: DEMO_RADIUS_M,
     },
     {
@@ -50,7 +50,7 @@ export function generateDemoPois(center: LatLng): ARPoi[] {
       url: "/demo/clip.mp4",
       title: "Aviso OESTE",
       body: "Tipo: video.",
-      scale: 3,
+      scale: 1,
       radius: DEMO_RADIUS_M,
     },
   ];
