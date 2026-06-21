@@ -68,7 +68,7 @@ function getFirstFix(): Promise<GeolocationPosition> {
 
 /**
  * Escena A-Frame + AR.js georreferenciada: el cartel se ancla en la lat/lng
- * REAL del aviso (`gps-new-entity-place`), así aparece en su dirección real
+ * REAL del aviso (`gps-projected-entity-place`), así aparece en su dirección real
  * (norte/sur/etc.). Arranca oculto; la proximidad solo decide cuándo mostrarlo.
  */
 function sceneHTML({ lat, lng }: LatLng): string {
@@ -79,11 +79,11 @@ function sceneHTML({ lat, lng }: LatLng): string {
     arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false"
     renderer="antialias: true; alpha: true"
     style="width:100%;height:100%;">
-    <a-camera gps-new-camera="gpsMinDistance: 5" rotation-reader></a-camera>
+    <a-camera gps-projected-camera="gpsMinDistance: 5" rotation-reader></a-camera>
     <a-entity
       id="poi"
       visible="false"
-      gps-new-entity-place="latitude: ${lat}; longitude: ${lng}"
+      gps-projected-entity-place="latitude: ${lat}; longitude: ${lng}"
       scale="3 3 3"
       animation="property: rotation; to: 0 360 0; loop: true; dur: 9000; easing: linear">
       <a-box position="0 0.6 0" depth="0.08" width="0.08" height="1.2" color="#8A8275"></a-box>
