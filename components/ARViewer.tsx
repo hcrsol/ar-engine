@@ -8,6 +8,10 @@ import type { LatLng } from "@/lib/types";
 type Phase = "intro" | "loading" | "running" | "error";
 type ErrKind = "coords" | "denied" | "webview" | "gps" | "generic";
 
+// Radio (m) dentro del cual se considera que "llegaste" y el aviso aparece.
+// Holgado a propósito: el error típico de GPS (±5–15 m) cabe dentro.
+const SNAP_RADIUS = 25;
+
 declare global {
   interface Window {
     AFRAME?: unknown;
@@ -57,8 +61,14 @@ function getFirstFix(): Promise<GeolocationPosition> {
   });
 }
 
-/** Escena A-Frame + AR.js con un cartel 3D animado anclado a la coordenada. */
-function sceneHTML({ lat, lng }: LatLng): string {
+/**
+ * Escena A-Frame + AR.js. Increment 3a (snap por cercanía):
+ * el cartel es hijo de la cámara (billboard a ~5 m al frente) y arranca oculto.
+ * Lo mostramos por proximidad desde nuestra propia lógica de distancia, sin
+ * depender de la brújula ni del anclaje geo de AR.js. AR.js aporta el video y
+ * la orientación de la cámara.
+ */
+function sceneHTML(): string {
   return `
   <a-scene
     vr-mode-ui="enabled: false"
@@ -66,17 +76,17 @@ function sceneHTML({ lat, lng }: LatLng): string {
     arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false"
     renderer="antialias: true; alpha: true"
     style="width:100%;height:100%;">
-    <a-camera gps-new-camera="gpsMinDistance: 5" rotation-reader></a-camera>
-    <a-entity
-      id="poi"
-      gps-new-entity-place="latitude: ${lat}; longitude: ${lng}"
-      scale="3 3 3"
-      animation="property: rotation; to: 0 360 0; loop: true; dur: 9000; easing: linear">
-      <a-box position="0 0.6 0" depth="0.08" width="0.08" height="1.2" color="#8A8275"></a-box>
-      <a-box position="0 1.75 0" depth="0.07" width="1.7" height="1.05" color="#C2603C"></a-box>
-      <a-box position="0 1.75 0.045" depth="0.02" width="1.5" height="0.85" color="#F0DDD2"></a-box>
-      <a-text value="AR" align="center" color="#1F1B16" width="5" position="0 1.75 0.08"></a-text>
-    </a-entity>
+    <a-camera gps-new-camera="gpsMinDistance: 5" rotation-reader>
+      <a-entity
+        id="poi"
+        visible="false"
+        position="0 0 -5"
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 9000; easing: linear">
+        <a-box position="0 0 0" depth="0.07" width="1.7" height="1.05" color="#C2603C"></a-box>
+        <a-box position="0 0 0.045" depth="0.02" width="1.5" height="0.85" color="#F0DDD2"></a-box>
+        <a-text value="AR" align="center" color="#1F1B16" width="5" position="0 0 0.08"></a-text>
+      </a-entity>
+    </a-camera>
   </a-scene>`;
 }
 
@@ -84,11 +94,15 @@ export default function ARViewer({ lat, lng }: { lat?: string; lng?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mountedScene = useRef(false);
   const watchId = useRef<number | null>(null);
+  const poiEl = useRef<Element | null>(null);
   const [phase, setPhase] = useState<Phase>("intro");
   const [err, setErr] = useState<ErrKind | null>(null);
-  const [hud, setHud] = useState<{ lat: number; lng: number; dist: number } | null>(
-    null,
-  );
+  const [hud, setHud] = useState<{
+    lat: number;
+    lng: number;
+    dist: number;
+    acc: number;
+  } | null>(null);
   const [loadingMsg, setLoadingMsg] = useState("Iniciando el motor AR…");
 
   const latN = lat != null ? Number(lat) : NaN;
@@ -169,15 +183,22 @@ export default function ARViewer({ lat, lng }: { lat?: string; lng?: string }) {
     const el = containerRef.current;
     if (!el || !target || mountedScene.current) return;
     mountedScene.current = true;
-    el.innerHTML = sceneHTML(target);
+    el.innerHTML = sceneHTML();
+    poiEl.current = el.querySelector("#poi");
 
-    // HUD propio: seguimos la posición con nuestro watchPosition, independiente
-    // de los eventos internos de AR.js (que pueden no dispararse). AR.js usa su
-    // propio GPS para colocar el cartel; aquí solo alimentamos el HUD.
+    // Seguimos la posición con nuestro propio watchPosition. Con cada lectura:
+    // (1) actualizamos el HUD (distancia + precisión real del equipo) y
+    // (2) mostramos u ocultamos el cartel según la proximidad (el "snap"),
+    // sin depender de la brújula ni del anclaje geo de AR.js.
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
         const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setHud({ ...here, dist: haversine(here, target) });
+        const dist = haversine(here, target);
+        setHud({ ...here, dist, acc: pos.coords.accuracy });
+        poiEl.current?.setAttribute(
+          "visible",
+          dist <= SNAP_RADIUS ? "true" : "false",
+        );
       },
       (e) => {
         if (e.code === 1) fail("denied");
@@ -196,14 +217,24 @@ export default function ARViewer({ lat, lng }: { lat?: string; lng?: string }) {
       {phase === "running" && (
         <>
           <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-4">
-            <div className="bg-ink/70 rounded-full px-4 py-2 font-mono text-[11px] text-white backdrop-blur">
+            <div className="bg-ink/70 rounded-2xl px-4 py-2 text-center font-mono text-[11px] text-white backdrop-blur">
               {hud ? (
                 <>
-                  GPS {hud.lat.toFixed(5)}, {hud.lng.toFixed(5)} ·{" "}
-                  {hud.dist < 1000
-                    ? `${Math.round(hud.dist)} m`
-                    : `${(hud.dist / 1000).toFixed(1)} km`}{" "}
-                  al aviso
+                  <div>
+                    {hud.dist < 1000
+                      ? `${Math.round(hud.dist)} m`
+                      : `${(hud.dist / 1000).toFixed(1)} km`}{" "}
+                    al aviso · GPS ±{Math.round(hud.acc)} m
+                  </div>
+                  <div
+                    className={
+                      hud.dist <= SNAP_RADIUS ? "text-ok" : "text-clay-soft"
+                    }
+                  >
+                    {hud.dist <= SNAP_RADIUS
+                      ? "Estás en el aviso ✓ — mira alrededor"
+                      : "Acércate al punto"}
+                  </div>
                 </>
               ) : (
                 "Buscando señal GPS…"
@@ -237,9 +268,9 @@ export default function ARViewer({ lat, lng }: { lat?: string; lng?: string }) {
                   Activa la cámara
                 </h1>
                 <p className="text-soft mx-auto mt-3 max-w-[90%] text-sm leading-relaxed">
-                  Apunta el teléfono hacia el lugar del aviso. Necesitamos cámara,
-                  ubicación y orientación para anclar la animación en el espacio
-                  real.
+                  Camina hacia el punto del aviso siguiendo la distancia que verás
+                  arriba. Cuando llegues, el aviso aparece frente a tu cámara —
+                  mira alrededor.
                 </p>
                 <button
                   onClick={activate}
@@ -248,8 +279,7 @@ export default function ARViewer({ lat, lng }: { lat?: string; lng?: string }) {
                   Activar cámara
                 </button>
                 <p className="text-soft mt-4 font-mono text-[11px]">
-                  GPS ~5–15 m · la brújula puede necesitar calibración (mueve el
-                  teléfono en forma de 8)
+                  Necesita cámara y ubicación · funciona mejor al aire libre
                 </p>
               </>
             )}

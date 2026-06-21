@@ -1,5 +1,12 @@
 # Changelog
 
+## Fase 3a — Visor robusto: snap por cercanía
+
+- El cartel pasa a billboard hijo de la cámara que aparece al entrar en el radio
+  del aviso (~25 m), independiente de la brújula y del anclaje geo de AR.js.
+- HUD muestra distancia + precisión real del GPS (±m) y estado de cercanía.
+- Plan de fases reescrito: Fase 3 = visor robusto en incrementos (3a/3b/3c).
+
 ## Fase 2 — Visor AR con cartel 3D
 
 - A-Frame 1.3.0 + AR.js 3.4.7 vendorizados en `public/ar` (no CDN).

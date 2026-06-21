@@ -73,19 +73,31 @@
 
 ---
 
-## FASE 3 — Validación en terreno (checkpoint humano clave)
-**Meta:** confirmar que el WebAR geoanclado es aceptable en el mundo real. **Decide si seguimos con WebAR puro o ajustamos enfoque.**
+## FASE 3 — Visor robusto (reescrita tras la prueba de campo)
 
-- [TÚ] **(intervención 2/3)** Abrir el link del preview en el teléfono, caminar a la coordenada, apuntar y confirmar:
-  - ¿Aparece la animación anclada al lugar?
-  - ¿El heading/brújula la coloca razonablemente (no detrás de ti / saltando)?
-  - Probar en iOS (Safari) y Android (Chrome).
-- Claude Code documenta el resultado en `docs/fase-3-campo.md` y, según el feedback, propone ajustes (calibración de brújula, escala, distancia mínima) o sigue.
+**Por qué cambió:** la primera prueba de campo (Fase 2) mostró que el **anclaje geo puro es frágil** — depende del GPS de corta distancia y, sobre todo, de la **brújula**, que varía por equipo y no se puede "calibrar" de forma universal. El objetivo se redefine: **que cualquier usuario, sin importar la calibración de su teléfono, vea el aviso con alta probabilidad.**
 
-**Checkpoint**
-- [TÚ] Veo la animación anclada de forma usable en terreno. ✅ → seguimos a persistencia.
+**Principio de diseño:** depender lo menos posible del sensor más caprichoso (la brújula). Robustez por capas que se respaldan, con autoajuste en vivo por equipo (no calibración manual). Cada incremento termina en una prueba de campo (intervención tuya, ligera).
 
-🟢 **Entregable:** veredicto sobre la viabilidad real + ajustes documentados.
+### 3a — Snap por cercanía + precisión real *(EN CURSO / primer incremento)*
+- El cartel deja de anclarse por GPS/brújula: es un **billboard hijo de la cámara** que **aparece al entrar en el radio del aviso** (`SNAP_RADIUS`, ~25 m). Independiente de la brújula → apuntas y está ahí.
+- HUD muestra **distancia + `accuracy` real (±m)** de *cada* equipo, en vivo (diagnóstico que generaliza, no tuning personal).
+- [AUTO] lint/typecheck/build/E2E (intro + error de coords).
+- [TÚ] Campo: caminar al punto; al entrar en el radio, ¿aparece el cartel? ¿Qué `±m` real marca el GPS?
+
+### 3b — Flecha de guía tolerante
+- Flecha ◀▶ en el HUD que indica hacia dónde girar (rumbo al aviso vs. brújula), diseñada con **tolerancia ancha** (no exige precisión de grados).
+- [TÚ] Campo: ¿la flecha ayuda a orientarte aunque la brújula no sea perfecta?
+
+### 3c — Autoajuste en vivo + anclaje fino oportunista
+- **Gating por `accuracy`**: el sistema decide en cada equipo cuándo confiar en el anclaje fino.
+- **Autocalibración por movimiento**: al caminar, comparar el rumbo real (GPS) con la brújula para corregir el desvío de *ese* teléfono, solo (calibración que generaliza por física).
+- Anclaje geo real (A) como **mejora oportunista** cuando las condiciones dan.
+- [TÚ] Campo: validación final del visor robusto en iOS (Safari) y Android (Chrome).
+
+🟢 **Entregable:** visor que cualquiera puede usar para llegar al aviso y verlo, con degradación elegante.
+
+> D (marcador/QR físico) y E (WebXR + ARCore Geospatial, precisión real) quedan como evolución futura — E ya estaba en el PRD.
 
 ---
 
