@@ -181,10 +181,29 @@ export default function ARViewer({
       return fail(code === 1 ? "denied" : "gps");
     }
 
+    // Para el demo, los avisos se plantan RELATIVOS a tu posición, así que la
+    // precisión importa mucho (a 10 m, ±5 m es enorme). El primer fix es rápido
+    // pero de red (impreciso): pedimos uno de ALTA precisión para plantar.
+    let plantFix = fix;
+    if (isDemo) {
+      setLoadingMsg("Afinando GPS…");
+      try {
+        plantFix = await new Promise<GeolocationPosition>((res, rej) =>
+          navigator.geolocation.getCurrentPosition(res, rej, {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0,
+          }),
+        );
+      } catch {
+        /* si no llega, usamos el fix rápido */
+      }
+    }
+
     poisRef.current = isDemo
       ? generateDemoPois({
-          lat: fix.coords.latitude,
-          lng: fix.coords.longitude,
+          lat: plantFix.coords.latitude,
+          lng: plantFix.coords.longitude,
         })
       : [
           {
