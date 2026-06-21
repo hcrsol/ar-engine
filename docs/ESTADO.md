@@ -1,8 +1,19 @@
 # Estado del proyecto — bitácora
 
-_Última actualización: 2026-06-21. Commit de referencia: `4594063`._
+_Última actualización: 2026-06-21 (tarde). Commit de referencia: `1a91ccf`._
 
 Documento vivo para retomar el trabajo. Resume **dónde estamos**, **qué aprendimos**, **en qué nos desviamos del plan** y **cómo seguir**.
+
+---
+
+## 0. Avance del 21-jun (tarde)
+
+- **A1 + A2 hechos y validados en campo (Android, de día):** motor **multi-aviso** + **4 tipos de contenido** (texto/cartel, imagen, modelo 3D `.glb` pato, video) en `lib/ar/{types,scene,demo}` (inicio de la extracción del núcleo). **Modo demo** `/visor?demo=1` planta 4 avisos N/S/E/O alrededor del usuario.
+- **Pulido aplicado:** alturas unificadas (+2 m, en metros reales separados del escalado), tamaños normalizados, debug detrás de `?debug=1`.
+- **Fixes de campo:** `gpsMinDistance` 5→0 (el aviso se corría al caminar); distancia del demo 30→**10 m** (para espacios chicos); el demo se planta con **fix de GPS de alta precisión** (a 10 m el fix de red daba avisos a ~5 m).
+- **Spike WebXR (Android) en `/spike` — VEREDICTO:** WebXR (immersive-ar/ARCore) es **más firme que el GPS** al caminar/atravesar. **Decisión: WebXR = capa de precisión para Android; GPS = base universal (y único camino en iPhone, que no soporta WebXR).** Para precisión en iOS sin app nativa: motor SLAM pago (8th Wall/Niantic). WebXR **no reemplaza** al GPS, lo complementa (GPS coloca, WebXR clava).
+- **Límite GPS confirmado:** a corta distancia (pasar a 0-5 m) el GPS no clava el paso exacto; es inherente. Para "verlo desde lejos anclado" funciona sólido.
+- **Pendiente inmediato:** elegir entre **A3 (panel para subir tus avisos)** vs **integrar WebXR al motor** (capa Android). Más adelante: A4 (iPhone), A5 (tarjeta de info), Supabase.
 
 ---
 
