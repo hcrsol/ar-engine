@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { haversine } from "@/lib/geo";
 import type { LatLng } from "@/lib/types";
@@ -38,7 +38,11 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
-/** Primer fix de GPS: fuerza el prompt de ubicación y "calienta" el sensor. */
+/**
+ * Primer fix de GPS: fuerza el prompt de ubicación y confirma que hay señal.
+ * Baja precisión + se acepta una posición reciente cacheada → resuelve rápido
+ * con ubicación de red (como Maps), sin esperar al GPS puro por satélite.
+ */
 function getFirstFix(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
     if (!("geolocation" in navigator)) {
@@ -46,9 +50,9 @@ function getFirstFix(): Promise<GeolocationPosition> {
       return;
     }
     navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
+      enableHighAccuracy: false,
       timeout: 30000,
-      maximumAge: 0,
+      maximumAge: 60000,
     });
   });
 }
@@ -79,6 +83,7 @@ function sceneHTML({ lat, lng }: LatLng): string {
 export default function ARViewer({ lat, lng }: { lat?: string; lng?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mountedScene = useRef(false);
+  const watchId = useRef<number | null>(null);
   const [phase, setPhase] = useState<Phase>("intro");
   const [err, setErr] = useState<ErrKind | null>(null);
   const [hud, setHud] = useState<{ lat: number; lng: number; dist: number } | null>(
@@ -95,6 +100,13 @@ export default function ARViewer({ lat, lng }: { lat?: string; lng?: string }) {
     Math.abs(lngN) <= 180
       ? { lat: latN, lng: lngN }
       : null;
+
+  useEffect(() => {
+    return () => {
+      if (watchId.current != null)
+        navigator.geolocation.clearWatch(watchId.current);
+    };
+  }, []);
 
   function fail(kind: ErrKind) {
     setErr(kind);
@@ -159,20 +171,20 @@ export default function ARViewer({ lat, lng }: { lat?: string; lng?: string }) {
     mountedScene.current = true;
     el.innerHTML = sceneHTML(target);
 
-    const cam = el.querySelector("[gps-new-camera]");
-    let gotPosition = false;
-    cam?.addEventListener("gps-camera-update-position", (e: Event) => {
-      gotPosition = true;
-      const pos = (e as CustomEvent).detail?.position;
-      if (!pos) return;
-      const here = { lat: pos.latitude, lng: pos.longitude };
-      setHud({ ...here, dist: haversine(here, target) });
-    });
-
-    // Red de seguridad: si en 30 s no llega ninguna posición GPS, avisar.
-    window.setTimeout(() => {
-      if (!gotPosition) fail("gps");
-    }, 30000);
+    // HUD propio: seguimos la posición con nuestro watchPosition, independiente
+    // de los eventos internos de AR.js (que pueden no dispararse). AR.js usa su
+    // propio GPS para colocar el cartel; aquí solo alimentamos el HUD.
+    watchId.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setHud({ ...here, dist: haversine(here, target) });
+      },
+      (e) => {
+        if (e.code === 1) fail("denied");
+        // code 2/3 (sin señal/timeout puntual): seguimos intentando, no matamos.
+      },
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 60000 },
+    );
   }
 
   return (
