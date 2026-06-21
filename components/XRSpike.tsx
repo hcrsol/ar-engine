@@ -8,21 +8,22 @@ import Link from "next/link";
 // visual de movimiento, vs. el visor GPS. Página aparte, no toca el motor GPS.
 // iOS/Safari no soporta WebXR → mostramos mensaje.
 
+// Versión firme: el pato es tamaño normal, se coloca con TAP sobre una
+// superficie detectada (hit-test) y queda apoyado/anclado al piso. Así se ve
+// la estabilidad real de WebXR (vs. un objeto flotante gigante).
 const SCENE_HTML = `
   <a-scene
-    webxr="requiredFeatures: local-floor"
+    webxr="requiredFeatures: local-floor; optionalFeatures: hit-test, anchors"
+    ar-hit-test="target: #duckmodel; type: footprint; footprintDepth: 0.3"
     vr-mode-ui="enabled: false"
     renderer="antialias: true; colorManagement: true"
     style="width:100%;height:100%;">
     <a-assets>
-      <a-asset-item id="duckmodel" src="/demo/duck.glb"></a-asset-item>
+      <a-asset-item id="duckasset" src="/demo/duck.glb"></a-asset-item>
     </a-assets>
     <a-entity light="type: ambient; intensity: 1.3"></a-entity>
-    <a-entity light="type: directional; intensity: 0.8" position="1 3 1"></a-entity>
-    <!-- Pato grande a 12 m de frente: el objetivo de la caminata. -->
-    <a-entity gltf-model="#duckmodel" position="0 1.2 -12" scale="3 3 3" rotation="0 180 0"></a-entity>
-    <!-- Pato menor a 6 m, como referencia cercana. -->
-    <a-entity gltf-model="#duckmodel" position="1.5 1 -6" scale="1.8 1.8 1.8" rotation="0 200 0"></a-entity>
+    <a-entity light="type: directional; intensity: 0.85" position="1 3 1"></a-entity>
+    <a-entity id="duckmodel" gltf-model="#duckasset" scale="1 1 1" visible="false"></a-entity>
     <a-camera></a-camera>
   </a-scene>`;
 
@@ -68,6 +69,10 @@ export default function XRSpike() {
           | (Element & { hasLoaded?: boolean })
           | null;
         if (!scene) return;
+        // Al tocar para colocar, aseguramos que el pato quede visible.
+        scene.addEventListener("ar-hit-test-select", () => {
+          el.querySelector("#duckmodel")?.setAttribute("visible", "true");
+        });
         if (scene.hasLoaded) setReady(true);
         else scene.addEventListener("loaded", () => setReady(true));
       })
@@ -146,10 +151,10 @@ export default function XRSpike() {
                 Prueba de precisión AR
               </h1>
               <p className="text-soft mx-auto mt-3 max-w-[90%] text-sm leading-relaxed">
-                Al entrar, vas a ver un <b>pato grande a 12 m</b> de frente (y
-                otro a 6 m). <b>Caminá hacia él y pasalo.</b> Mirá si se queda
-                clavado en su lugar (sin correrse), que es lo que el GPS no
-                lograba.
+                Al entrar, <b>apuntá la cámara al piso</b> unos metros adelante:
+                aparece un <b>círculo</b>. <b>Tocá la pantalla</b> para apoyar un
+                pato (tamaño normal) ahí. Después <b>caminá alrededor y pasalo</b>
+                — mirá si se queda <b>clavado al piso</b> como un objeto real.
               </p>
               <button
                 onClick={enter}
