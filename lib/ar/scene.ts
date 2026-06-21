@@ -72,7 +72,7 @@ export function buildSceneHTML(pois: ARPoi[]): string {
     renderer="antialias: true; alpha: true"
     style="width:100%;height:100%;">
     <a-assets>${assets}</a-assets>
-    <a-camera gps-projected-camera="gpsMinDistance: 5" rotation-reader></a-camera>
+    <a-camera gps-projected-camera="gpsMinDistance: 0" rotation-reader></a-camera>
     ${entities}
   </a-scene>`;
 }
