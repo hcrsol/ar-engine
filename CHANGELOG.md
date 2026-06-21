@@ -1,5 +1,13 @@
 # Changelog
 
+## Fase 3b — Flecha de guía + debug (brújula/colocación)
+
+- Brújula del dispositivo (iOS webkitCompassHeading / Android absoluta).
+- `lib/geo`: `bearing` y `relativeAngle` con tests.
+- HUD: flecha "◀ gira N° / gira N° ▶ / de frente ✓" hacia el aviso.
+- Línea de debug: brújula, rumbo al aviso y posición (x,z) que AR.js asigna a
+  la entidad → revela si el fallo es de colocación (poi ~0,0) o de orientación.
+
 ## Fase 3a (revisado) — Anclaje georreferenciado + radio configurable
 
 - Revertido el billboard pegado a la cámara: el cartel vuelve a anclarse en la

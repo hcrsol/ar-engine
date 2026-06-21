@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { haversine } from "@/lib/geo";
+import { haversine, bearing, relativeAngle } from "@/lib/geo";
 import type { LatLng } from "@/lib/types";
 
 type Phase = "intro" | "loading" | "running" | "error";
@@ -111,6 +111,11 @@ export default function ARViewer({
   const mountedScene = useRef(false);
   const watchId = useRef<number | null>(null);
   const poiEl = useRef<Element | null>(null);
+  const orientHandler = useRef<((e: DeviceOrientationEvent) => void) | null>(
+    null,
+  );
+  const debugTimer = useRef<number | null>(null);
+  const lastHeadingTs = useRef(0);
   const [phase, setPhase] = useState<Phase>("intro");
   const [err, setErr] = useState<ErrKind | null>(null);
   const [hud, setHud] = useState<{
@@ -119,6 +124,8 @@ export default function ARViewer({
     dist: number;
     acc: number;
   } | null>(null);
+  const [heading, setHeading] = useState<number | null>(null);
+  const [poiPos, setPoiPos] = useState<{ x: number; z: number } | null>(null);
   const [loadingMsg, setLoadingMsg] = useState("Iniciando el motor AR…");
 
   const latN = lat != null ? Number(lat) : NaN;
@@ -135,6 +142,17 @@ export default function ARViewer({
     return () => {
       if (watchId.current != null)
         navigator.geolocation.clearWatch(watchId.current);
+      if (orientHandler.current) {
+        window.removeEventListener(
+          "deviceorientationabsolute",
+          orientHandler.current as EventListener,
+        );
+        window.removeEventListener(
+          "deviceorientation",
+          orientHandler.current as EventListener,
+        );
+      }
+      if (debugTimer.current != null) clearInterval(debugTimer.current);
     };
   }, []);
 
@@ -222,7 +240,45 @@ export default function ARViewer({
       },
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 60000 },
     );
+
+    // Brújula: heading del dispositivo para la flecha de guía.
+    const handler = (e: DeviceOrientationEvent) => {
+      let h: number | null = null;
+      const compass = (e as unknown as { webkitCompassHeading?: number })
+        .webkitCompassHeading;
+      if (typeof compass === "number") {
+        h = compass; // iOS: 0=N, horario
+      } else if (e.absolute && typeof e.alpha === "number") {
+        h = (360 - e.alpha) % 360; // Android (orientación absoluta)
+      }
+      if (h == null) return;
+      const now = Date.now();
+      if (now - lastHeadingTs.current < 120) return; // throttle ~8 Hz
+      lastHeadingTs.current = now;
+      setHeading(h);
+    };
+    orientHandler.current = handler;
+    window.addEventListener(
+      "deviceorientationabsolute",
+      handler as EventListener,
+    );
+    window.addEventListener("deviceorientation", handler as EventListener);
+
+    // Debug: posición (x,z en metros) que AR.js le asigna a la entidad.
+    // Si queda en ~0,0 → AR.js no la colocó (problema de colocación).
+    debugTimer.current = window.setInterval(() => {
+      const obj = (
+        poiEl.current as unknown as {
+          object3D?: { position: { x: number; z: number } };
+        }
+      )?.object3D;
+      if (obj) setPoiPos({ x: obj.position.x, z: obj.position.z });
+    }, 500);
   }
+
+  const brg = hud && target ? bearing(hud, target) : null;
+  const turn =
+    heading != null && brg != null ? relativeAngle(heading, brg) : null;
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-black">
@@ -248,8 +304,26 @@ export default function ARViewer({
                     }
                   >
                     {hud.dist <= reveal
-                      ? "En rango ✓ — gira buscando el aviso"
+                      ? "En rango ✓ — gira hacia la flecha"
                       : `Acércate · aparece a ${reveal} m`}
+                  </div>
+                  {hud.dist <= reveal && (
+                    <div className="mt-0.5 text-[14px]">
+                      {turn == null
+                        ? "brújula sin datos"
+                        : Math.abs(turn) <= 12
+                          ? "de frente ✓"
+                          : turn < 0
+                            ? `◀ gira ${Math.round(-turn)}°`
+                            : `gira ${Math.round(turn)}° ▶`}
+                    </div>
+                  )}
+                  <div className="mt-1 text-[9px] text-white/55">
+                    brúj {heading == null ? "—" : `${Math.round(heading)}°`} ·
+                    rumbo {brg == null ? "—" : `${Math.round(brg)}°`} · poi{" "}
+                    {poiPos
+                      ? `${Math.round(poiPos.x)},${Math.round(poiPos.z)}`
+                      : "—"}
                   </div>
                 </>
               ) : (

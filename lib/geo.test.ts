@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseCoords, haversine } from "./geo";
+import { parseCoords, haversine, bearing, relativeAngle } from "./geo";
 
 describe("parseCoords", () => {
   it("par suelto 'lat, lng'", () => {
@@ -50,5 +50,37 @@ describe("haversine", () => {
     const d = haversine({ lat: 0, lng: 0 }, { lat: 1, lng: 0 });
     expect(d).toBeGreaterThan(110_000);
     expect(d).toBeLessThan(112_000);
+  });
+});
+
+describe("bearing", () => {
+  it("hacia el norte ~0°", () => {
+    expect(bearing({ lat: 0, lng: 0 }, { lat: 1, lng: 0 })).toBeCloseTo(0, 1);
+  });
+
+  it("hacia el este ~90°", () => {
+    expect(bearing({ lat: 0, lng: 0 }, { lat: 0, lng: 1 })).toBeCloseTo(90, 1);
+  });
+
+  it("hacia el sur ~180°", () => {
+    expect(bearing({ lat: 0, lng: 0 }, { lat: -1, lng: 0 })).toBeCloseTo(180, 1);
+  });
+});
+
+describe("relativeAngle", () => {
+  it("mismo rumbo = 0 (de frente)", () => {
+    expect(relativeAngle(90, 90)).toBe(0);
+  });
+
+  it("objetivo a la derecha = positivo", () => {
+    expect(relativeAngle(0, 45)).toBe(45);
+  });
+
+  it("objetivo a la izquierda = negativo", () => {
+    expect(relativeAngle(0, 315)).toBe(-45);
+  });
+
+  it("cruza el 360 sin saltar", () => {
+    expect(relativeAngle(350, 10)).toBe(20);
   });
 });
