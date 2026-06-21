@@ -3,25 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { haversine, bearing, relativeAngle } from "@/lib/geo";
-import type { LatLng } from "@/lib/types";
+import { buildSceneHTML } from "@/lib/ar/scene";
+import { generateDemoPois } from "@/lib/ar/demo";
+import type { ARPoi } from "@/lib/ar/types";
 
 type Phase = "intro" | "loading" | "running" | "error";
 type ErrKind = "coords" | "denied" | "webview" | "gps" | "generic";
 
-// Radio de aparición por defecto (m): el aviso geoanclado se muestra cuando
-// estás dentro de este radio (como el zoom de un mapa). Configurable por el
-// parámetro `r` del link. El aviso SIEMPRE se coloca en su dirección real.
+// Radio de aparición por defecto (m): un aviso geoanclado se muestra al entrar
+// en su radio (como el zoom de un mapa). Configurable por `r` del link o por
+// aviso. El aviso SIEMPRE se coloca en su dirección real.
 const DEFAULT_RADIUS = 100;
 const MIN_RADIUS = 5;
 const MAX_RADIUS = 5000;
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(hi, Math.max(lo, n));
-
-declare global {
-  interface Window {
-    AFRAME?: unknown;
-  }
-}
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -49,8 +45,8 @@ function loadScript(src: string): Promise<void> {
 
 /**
  * Primer fix de GPS: fuerza el prompt de ubicación y confirma que hay señal.
- * Baja precisión + se acepta una posición reciente cacheada → resuelve rápido
- * con ubicación de red (como Maps), sin esperar al GPS puro por satélite.
+ * Baja precisión + posición reciente cacheada → resuelve rápido con ubicación
+ * de red (como Maps), sin esperar al GPS puro por satélite.
  */
 function getFirstFix(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
@@ -66,51 +62,38 @@ function getFirstFix(): Promise<GeolocationPosition> {
   });
 }
 
-/**
- * Escena A-Frame + AR.js georreferenciada: el cartel se ancla en la lat/lng
- * REAL del aviso (`gps-projected-entity-place`), así aparece en su dirección real
- * (norte/sur/etc.). Arranca oculto; la proximidad solo decide cuándo mostrarlo.
- */
-function sceneHTML({ lat, lng }: LatLng): string {
-  return `
-  <a-scene
-    vr-mode-ui="enabled: false"
-    embedded
-    arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false"
-    renderer="antialias: true; alpha: true"
-    style="width:100%;height:100%;">
-    <a-camera gps-projected-camera="gpsMinDistance: 5" rotation-reader></a-camera>
-    <a-entity
-      id="poi"
-      visible="false"
-      gps-projected-entity-place="latitude: ${lat}; longitude: ${lng}"
-      scale="3 3 3"
-      animation="property: rotation; to: 0 360 0; loop: true; dur: 9000; easing: linear">
-      <a-box position="0 0.6 0" depth="0.08" width="0.08" height="1.2" color="#8A8275"></a-box>
-      <a-box position="0 1.75 0" depth="0.07" width="1.7" height="1.05" color="#C2603C"></a-box>
-      <a-box position="0 1.75 0.045" depth="0.02" width="1.5" height="0.85" color="#F0DDD2"></a-box>
-      <a-text value="AR" align="center" color="#1F1B16" width="5" position="0 1.75 0.08"></a-text>
-    </a-entity>
-  </a-scene>`;
-}
+type Nearest = { lat: number; lng: number; title: string; id: string; radius: number };
 
 export default function ARViewer({
   lat,
   lng,
   radius,
+  demo,
 }: {
   lat?: string;
   lng?: string;
   radius?: string;
+  demo?: string;
 }) {
   const radiusN = radius != null ? Number(radius) : NaN;
   const reveal = Number.isFinite(radiusN)
     ? clamp(radiusN, MIN_RADIUS, MAX_RADIUS)
     : DEFAULT_RADIUS;
+  const isDemo = demo === "1" || demo === "true";
+
+  const latN = lat != null ? Number(lat) : NaN;
+  const lngN = lng != null ? Number(lng) : NaN;
+  const validSingle =
+    Number.isFinite(latN) &&
+    Number.isFinite(lngN) &&
+    Math.abs(latN) <= 90 &&
+    Math.abs(lngN) <= 180;
+
   const containerRef = useRef<HTMLDivElement>(null);
   const mountedScene = useRef(false);
   const watchId = useRef<number | null>(null);
-  const poiEl = useRef<Element | null>(null);
+  const poisRef = useRef<ARPoi[]>([]);
+  const nearestIdRef = useRef<string | null>(null);
   const orientHandler = useRef<((e: DeviceOrientationEvent) => void) | null>(
     null,
   );
@@ -123,20 +106,12 @@ export default function ARViewer({
     lng: number;
     dist: number;
     acc: number;
+    nearest: Nearest | null;
   } | null>(null);
   const [heading, setHeading] = useState<number | null>(null);
   const [poiPos, setPoiPos] = useState<{ x: number; z: number } | null>(null);
+  const [count, setCount] = useState(0);
   const [loadingMsg, setLoadingMsg] = useState("Iniciando el motor AR…");
-
-  const latN = lat != null ? Number(lat) : NaN;
-  const lngN = lng != null ? Number(lng) : NaN;
-  const target: LatLng | null =
-    Number.isFinite(latN) &&
-    Number.isFinite(lngN) &&
-    Math.abs(latN) <= 90 &&
-    Math.abs(lngN) <= 180
-      ? { lat: latN, lng: lngN }
-      : null;
 
   useEffect(() => {
     return () => {
@@ -162,11 +137,11 @@ export default function ARViewer({
   }
 
   async function activate() {
-    // La cámara no funciona dentro de los webviews de Instagram/Facebook/WhatsApp.
+    // La cámara no funciona en webviews de Instagram/Facebook/WhatsApp.
     const ua = navigator.userAgent || "";
     if (/Instagram|FBAN|FBAV|FB_IAB|WhatsApp/i.test(ua)) return fail("webview");
 
-    if (!target) return fail("coords");
+    if (!isDemo && !validSingle) return fail("coords");
 
     // iOS: permiso de orientación, obligatoriamente tras gesto.
     try {
@@ -191,16 +166,35 @@ export default function ARViewer({
       return fail("denied");
     }
 
-    // GPS: pedimos el permiso y un primer fix ANTES de montar la escena.
-    // Así el prompt de ubicación aparece explícito y el sensor llega caliente.
+    // GPS: pedimos permiso y un primer fix ANTES de montar la escena. En modo
+    // demo, ese fix también define dónde plantar los 4 avisos alrededor.
     setLoadingMsg("Buscando señal GPS…");
     setPhase("loading");
+    let fix: GeolocationPosition;
     try {
-      await getFirstFix();
+      fix = await getFirstFix();
     } catch (e) {
       const code = (e as GeolocationPositionError)?.code;
       return fail(code === 1 ? "denied" : "gps");
     }
+
+    poisRef.current = isDemo
+      ? generateDemoPois({
+          lat: fix.coords.latitude,
+          lng: fix.coords.longitude,
+        })
+      : [
+          {
+            id: "a",
+            lat: latN,
+            lng: lngN,
+            type: "text",
+            text: "AR",
+            scale: 3,
+            radius: reveal,
+          },
+        ];
+    setCount(poisRef.current.length);
 
     setLoadingMsg("Iniciando el motor AR…");
     try {
@@ -215,33 +209,45 @@ export default function ARViewer({
 
   function injectScene() {
     const el = containerRef.current;
-    if (!el || !target || mountedScene.current) return;
+    if (!el || mountedScene.current) return;
     mountedScene.current = true;
-    el.innerHTML = sceneHTML(target);
-    poiEl.current = el.querySelector("#poi");
+    el.innerHTML = buildSceneHTML(poisRef.current);
 
-    // Seguimos la posición con nuestro propio watchPosition. Con cada lectura:
-    // (1) actualizamos el HUD (distancia + precisión real del equipo) y
-    // (2) mostramos u ocultamos el cartel según la proximidad (el "snap"),
-    // sin depender de la brújula ni del anclaje geo de AR.js.
+    // watchPosition propio: por cada lectura (1) elegimos el aviso más cercano
+    // para el HUD/flecha y (2) mostramos cada aviso si estás dentro de su radio.
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
         const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        const dist = haversine(here, target);
-        setHud({ ...here, dist, acc: pos.coords.accuracy });
-        poiEl.current?.setAttribute(
-          "visible",
-          dist <= reveal ? "true" : "false",
-        );
+        let nearest: Nearest | null = null;
+        let nd = Infinity;
+        for (const p of poisRef.current) {
+          const d = haversine(here, p);
+          const r = p.radius ?? reveal;
+          document
+            .getElementById(`poi-${p.id}`)
+            ?.setAttribute("visible", d <= r ? "true" : "false");
+          if (d < nd) {
+            nd = d;
+            nearest = {
+              lat: p.lat,
+              lng: p.lng,
+              title: p.title ?? "aviso",
+              id: p.id,
+              radius: r,
+            };
+          }
+        }
+        nearestIdRef.current = nearest?.id ?? null;
+        setHud({ ...here, dist: nd, acc: pos.coords.accuracy, nearest });
       },
       (e) => {
         if (e.code === 1) fail("denied");
-        // code 2/3 (sin señal/timeout puntual): seguimos intentando, no matamos.
+        // code 2/3 (sin señal/timeout puntual): seguimos intentando.
       },
       { enableHighAccuracy: true, maximumAge: 1000, timeout: 60000 },
     );
 
-    // Brújula: heading del dispositivo para la flecha de guía.
+    // Brújula para la flecha de guía.
     const handler = (e: DeviceOrientationEvent) => {
       let h: number | null = null;
       const compass = (e as unknown as { webkitCompassHeading?: number })
@@ -264,50 +270,49 @@ export default function ARViewer({
     );
     window.addEventListener("deviceorientation", handler as EventListener);
 
-    // Debug: posición (x,z en metros) que AR.js le asigna a la entidad.
-    // Si queda en ~0,0 → AR.js no la colocó (problema de colocación).
+    // Debug: posición (x,z) que AR.js asigna al aviso más cercano.
     debugTimer.current = window.setInterval(() => {
+      const id = nearestIdRef.current;
+      if (!id) return;
       const obj = (
-        poiEl.current as unknown as {
+        document.getElementById(`poi-${id}`) as unknown as {
           object3D?: { position: { x: number; z: number } };
-        }
+        } | null
       )?.object3D;
       if (obj) setPoiPos({ x: obj.position.x, z: obj.position.z });
     }, 500);
   }
 
-  const brg = hud && target ? bearing(hud, target) : null;
+  const brg =
+    hud && hud.nearest
+      ? bearing({ lat: hud.lat, lng: hud.lng }, hud.nearest)
+      : null;
   const turn =
     heading != null && brg != null ? relativeAngle(heading, brg) : null;
+  const inRange = !!hud && !!hud.nearest && hud.dist <= hud.nearest.radius;
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-black">
-      {/* Contenedor de la escena AR (siempre presente para el ref) */}
       <div ref={containerRef} className="absolute inset-0" />
 
-      {/* HUD durante la sesión */}
       {phase === "running" && (
         <>
           <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center p-4">
             <div className="bg-ink/70 rounded-2xl px-4 py-2 text-center font-mono text-[11px] text-white backdrop-blur">
-              {hud ? (
+              {hud && hud.nearest ? (
                 <>
                   <div>
                     {hud.dist < 1000
                       ? `${Math.round(hud.dist)} m`
                       : `${(hud.dist / 1000).toFixed(1)} km`}{" "}
-                    al aviso · GPS ±{Math.round(hud.acc)} m
+                    a {hud.nearest.title} · GPS ±{Math.round(hud.acc)} m
                   </div>
-                  <div
-                    className={
-                      hud.dist <= reveal ? "text-ok" : "text-clay-soft"
-                    }
-                  >
-                    {hud.dist <= reveal
+                  <div className={inRange ? "text-ok" : "text-clay-soft"}>
+                    {inRange
                       ? "En rango ✓ — gira hacia la flecha"
-                      : `Acércate · aparece a ${reveal} m`}
+                      : `Acércate · aparece a ${hud.nearest.radius} m`}
                   </div>
-                  {hud.dist <= reveal && (
+                  {inRange && (
                     <div className="mt-0.5 text-[14px]">
                       {turn == null
                         ? "brújula sin datos"
@@ -323,7 +328,8 @@ export default function ARViewer({
                     rumbo {brg == null ? "—" : `${Math.round(brg)}°`} · poi{" "}
                     {poiPos
                       ? `${Math.round(poiPos.x)},${Math.round(poiPos.z)}`
-                      : "—"}
+                      : "—"}{" "}
+                    · {count} avisos
                   </div>
                 </>
               ) : (
@@ -342,13 +348,12 @@ export default function ARViewer({
         </>
       )}
 
-      {/* Pantalla intro / loading / error */}
       {phase !== "running" && (
         <div className="bg-paper text-ink absolute inset-0 flex items-center justify-center px-5">
           <div className="w-full max-w-[420px] text-center">
             <div className="text-clay flex items-center justify-center gap-2 font-mono text-[11px] tracking-[0.28em] uppercase">
               <span className="bg-clay h-px w-[18px]" />
-              Visor AR
+              {isDemo ? "Visor AR · demo" : "Visor AR"}
               <span className="bg-clay h-px w-[18px]" />
             </div>
 
@@ -358,9 +363,9 @@ export default function ARViewer({
                   Activa la cámara
                 </h1>
                 <p className="text-soft mx-auto mt-3 max-w-[90%] text-sm leading-relaxed">
-                  Camina hacia el punto del aviso siguiendo la distancia que verás
-                  arriba. Al entrar en el radio, el aviso aparece anclado en su
-                  lugar real — gira la cámara hacia esa dirección para verlo.
+                  {isDemo
+                    ? "Modo demo: al activar, se plantan 4 avisos a tu alrededor (norte, sur, este, oeste), uno de cada tipo. Gira sobre tu eje para encontrarlos."
+                    : "Camina hacia el punto del aviso siguiendo la distancia de arriba. Al entrar en el radio, aparece anclado en su lugar real — gira la cámara hacia esa dirección."}
                 </p>
                 <button
                   onClick={activate}

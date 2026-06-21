@@ -5,8 +5,13 @@ import ARViewer from "@/components/ARViewer";
 export default async function VisorPage({
   searchParams,
 }: {
-  searchParams: Promise<{ lat?: string; lng?: string; r?: string }>;
+  searchParams: Promise<{
+    lat?: string;
+    lng?: string;
+    r?: string;
+    demo?: string;
+  }>;
 }) {
-  const { lat, lng, r } = await searchParams;
-  return <ARViewer lat={lat} lng={lng} radius={r} />;
+  const { lat, lng, r, demo } = await searchParams;
+  return <ARViewer lat={lat} lng={lng} radius={r} demo={demo} />;
 }

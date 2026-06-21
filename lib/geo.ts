@@ -45,6 +45,28 @@ export function relativeAngle(heading: number, target: number): number {
   return ((target - heading + 540) % 360) - 180;
 }
 
+/** Punto destino a `distM` metros de `from` en el rumbo `bearingDeg`. */
+export function destination(
+  from: LatLng,
+  bearingDeg: number,
+  distM: number,
+): LatLng {
+  const d = distM / EARTH_RADIUS_M;
+  const t = toRad(bearingDeg);
+  const lat1 = toRad(from.lat);
+  const lng1 = toRad(from.lng);
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(t),
+  );
+  const lng2 =
+    lng1 +
+    Math.atan2(
+      Math.sin(t) * Math.sin(d) * Math.cos(lat1),
+      Math.cos(d) - Math.sin(lat1) * Math.sin(lat2),
+    );
+  return { lat: toDeg(lat2), lng: ((toDeg(lng2) + 540) % 360) - 180 };
+}
+
 /** Distancia Haversine en metros entre dos coordenadas. */
 export function haversine(a: LatLng, b: LatLng): number {
   const dLat = toRad(b.lat - a.lat);

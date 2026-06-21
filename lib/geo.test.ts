@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { parseCoords, haversine, bearing, relativeAngle } from "./geo";
+import {
+  parseCoords,
+  haversine,
+  bearing,
+  relativeAngle,
+  destination,
+} from "./geo";
 
 describe("parseCoords", () => {
   it("par suelto 'lat, lng'", () => {
@@ -82,5 +88,24 @@ describe("relativeAngle", () => {
 
   it("cruza el 360 sin saltar", () => {
     expect(relativeAngle(350, 10)).toBe(20);
+  });
+});
+
+describe("destination", () => {
+  const origin = { lat: -33, lng: -71 };
+
+  it("a 30 m está a ~30 m del origen", () => {
+    const d = destination(origin, 90, 30);
+    expect(haversine(origin, d)).toBeCloseTo(30, 0);
+  });
+
+  it("el rumbo al destino coincide con el pedido", () => {
+    const d = destination(origin, 90, 30);
+    expect(bearing(origin, d)).toBeCloseTo(90, 0);
+  });
+
+  it("norte sube la latitud, sur la baja", () => {
+    expect(destination(origin, 0, 50).lat).toBeGreaterThan(origin.lat);
+    expect(destination(origin, 180, 50).lat).toBeLessThan(origin.lat);
   });
 });

@@ -19,3 +19,11 @@ test("sin coordenadas, al activar avisa que faltan", async ({ page }) => {
     page.getByRole("heading", { name: /Faltan las coordenadas/i }),
   ).toBeVisible();
 });
+
+test("modo demo muestra la intro de demo", async ({ page }) => {
+  await page.goto("/visor?demo=1");
+  await expect(page.getByText(/Modo demo/i)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Activar cámara/i }),
+  ).toBeVisible();
+});
